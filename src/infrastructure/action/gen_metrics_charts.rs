@@ -18,14 +18,8 @@ use crate::infrastructure::helm_charts::prometheus_operator_crds::PrometheusOper
 use crate::infrastructure::helm_charts::thanos::ThanosChart;
 use crate::io_models::metrics::{MetricsConfiguration, MetricsParameters};
 use crate::io_models::models::CustomerHelmChartsOverride;
-use once_cell::sync::Lazy;
-use std::collections::HashSet;
 use std::sync::Arc;
 use url::Url;
-
-// Temporary HashSet for testing purpose
-static CLUSTER_IDS_WITH_ADVANCED_METRICS_FEATURE: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| HashSet::from_iter(["3f50657b-1162-4dde-b706-4d5e937f3c09"].iter().copied()));
 
 pub enum CloudProviderMetricsConfig<'a> {
     Eks(&'a EksChartsConfigPrerequisites),
@@ -108,7 +102,6 @@ pub struct MetricsConfig {
     pub thanos_chart: Option<CommonChart>,
     pub prometheus_adapter_chart: Option<CommonChart>,
     pub metrics_query_url: Option<String>,
-    pub advanced_metrics_feature: bool, // Temporary parameter for testing purpose
 }
 
 pub fn generate_metrics_config(
@@ -124,6 +117,7 @@ pub fn generate_metrics_config(
     match metrics_configuration {
         Some(MetricsConfiguration::MetricsInstalledByQovery {
             install_prometheus_adapter,
+            enable_redundancy,
         }) => generate_charts_installed_by_qovery(
             HelmAction::Deploy,
             install_prometheus_adapter,
@@ -133,6 +127,7 @@ pub fn generate_metrics_config(
             prometheus_namespace,
             get_chart_override_fn,
             cluster_id,
+            enable_redundancy,
         ),
         None => generate_charts_installed_by_qovery(
             HelmAction::Destroy,
@@ -143,6 +138,7 @@ pub fn generate_metrics_config(
             prometheus_namespace,
             get_chart_override_fn,
             cluster_id,
+            None,
         ),
         Some(_) => Ok(MetricsConfig {
             prometheus_operator_crds_chart: None,
@@ -150,7 +146,6 @@ pub fn generate_metrics_config(
             thanos_chart: None,
             prometheus_adapter_chart: None,
             metrics_query_url: None,
-            advanced_metrics_feature: false,
         }),
     }
 }
@@ -163,7 +158,8 @@ fn generate_charts_installed_by_qovery(
     prometheus_internal_url: &str,
     prometheus_namespace: HelmChartNamespaces,
     get_chart_override_fn: Arc<dyn Fn(String) -> Option<CustomerHelmChartsOverride>>,
-    cluster_id: &str,
+    _cluster_id: &str,
+    enable_redundancy: Option<bool>,
 ) -> Result<MetricsConfig, CommandError> {
     // TODO (ENG-1986) ATM we can't install prometheus operator crds systematically, as some clients may have already installed some versions on their side
     // Prometheus CRDs
@@ -173,6 +169,8 @@ fn generate_charts_installed_by_qovery(
         ),
         HelmAction::Destroy => None,
     };
+
+    let enable_redundancy = enable_redundancy.unwrap_or(true);
 
     // Kube Prometheus Stack
     let kube_prometheus_stack_chart = KubePrometheusStackChart::new(
@@ -185,6 +183,7 @@ fn generate_charts_installed_by_qovery(
         get_chart_override_fn.clone(),
         false,
         provider_config.is_karpenter_enabled(),
+        enable_redundancy,
     )
     .to_common_helm_chart()?;
 
@@ -201,6 +200,7 @@ fn generate_charts_installed_by_qovery(
         None,
         None,
         provider_config.is_karpenter_enabled(),
+        enable_redundancy,
     )
     .to_common_helm_chart()?;
 
@@ -229,7 +229,6 @@ fn generate_charts_installed_by_qovery(
             HelmAction::Deploy => Some(provider_config.metrics_query_url_for_qovery_installation()),
             HelmAction::Destroy => None,
         },
-        advanced_metrics_feature: CLUSTER_IDS_WITH_ADVANCED_METRICS_FEATURE.contains(cluster_id),
     })
 }
 
@@ -239,10 +238,17 @@ mod tests {
     use crate::environment::models::third_parties::LetsEncryptConfig;
     use crate::infrastructure::models::cloud_provider::aws::regions::AwsRegion;
     use crate::infrastructure::models::dns_provider::qoverydns::QoveryDnsConfig;
+    use crate::infrastructure::models::kubernetes::KubernetesVersion;
     use crate::infrastructure::models::kubernetes::aws::Options;
     use crate::io_models::engine_location::EngineLocation;
     use crate::io_models::models::VpcQoveryNetworkMode;
     use std::sync::Arc;
+
+    const KUBERNETES_VERSION: KubernetesVersion = KubernetesVersion::V1_32 {
+        prefix: None,
+        patch: None,
+        suffix: None,
+    };
 
     #[test]
     fn test_metrics_query_url_on_deploy() {
@@ -265,6 +271,7 @@ mod tests {
             prometheus_namespace,
             get_chart_override_fn,
             "none",
+            None,
         );
 
         assert!(result.is_ok());
@@ -297,6 +304,7 @@ mod tests {
             prometheus_namespace,
             get_chart_override_fn,
             "none",
+            None,
         );
 
         assert!(result.is_ok());
@@ -312,6 +320,7 @@ mod tests {
             cluster_long_id: Default::default(),
             cluster_creation_date: Default::default(),
             region: AwsRegion::UsEast1,
+            kubernetes_version: KUBERNETES_VERSION,
             cluster_name: "".to_string(),
             cpu_architectures: vec![],
             cloud_provider: "".to_string(),

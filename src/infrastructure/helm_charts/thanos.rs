@@ -57,6 +57,7 @@ impl ThanosChart {
         compactor_resources: Option<HelmChartResources>,
         store_gateway_resources: Option<HelmChartResources>,
         karpenter_enabled: bool,
+        enable_redundancy: bool,
     ) -> Self {
         Self {
             action,
@@ -85,14 +86,14 @@ impl ThanosChart {
             query_resources: match query_resources {
                 Some(resources) => resources,
                 None => HelmChartResources {
-                    limit_cpu: KubernetesCpuResourceUnit::MilliCpu(500),
-                    limit_memory: KubernetesMemoryResourceUnit::MebiByte(256),
-                    request_cpu: KubernetesCpuResourceUnit::MilliCpu(500),
-                    request_memory: KubernetesMemoryResourceUnit::MebiByte(256),
+                    limit_cpu: KubernetesCpuResourceUnit::MilliCpu(1000),
+                    limit_memory: KubernetesMemoryResourceUnit::MebiByte(768),
+                    request_cpu: KubernetesCpuResourceUnit::MilliCpu(1000),
+                    request_memory: KubernetesMemoryResourceUnit::MebiByte(768),
                 },
             },
             query_autoscaling: HelmChartAutoscaling {
-                min_replicas: 2,
+                min_replicas: if enable_redundancy { 2 } else { 1 },
                 max_replicas: 5,
                 target_cpu_utilization_percentage: 60,
             },
@@ -123,13 +124,13 @@ impl ThanosChart {
                 Some(resources) => resources,
                 None => HelmChartResources {
                     limit_cpu: KubernetesCpuResourceUnit::MilliCpu(500),
-                    limit_memory: KubernetesMemoryResourceUnit::MebiByte(512),
+                    limit_memory: KubernetesMemoryResourceUnit::GibiByte(1),
                     request_cpu: KubernetesCpuResourceUnit::MilliCpu(500),
-                    request_memory: KubernetesMemoryResourceUnit::MebiByte(512),
+                    request_memory: KubernetesMemoryResourceUnit::GibiByte(1),
                 },
             },
             store_gateway_autoscaling: HelmChartAutoscaling {
-                min_replicas: 2,
+                min_replicas: if enable_redundancy { 2 } else { 1 },
                 max_replicas: 5,
                 target_cpu_utilization_percentage: 60,
             },
@@ -450,6 +451,7 @@ mod tests {
             None,
             None,
             false,
+            true,
         );
 
         let current_directory = env::current_dir().expect("Impossible to get current directory");
@@ -490,6 +492,7 @@ mod tests {
             None,
             None,
             false,
+            true,
         );
 
         let current_directory = env::current_dir().expect("Impossible to get current directory");
@@ -540,6 +543,7 @@ mod tests {
             None,
             None,
             false,
+            true,
         );
         let common_chart = chart.to_common_helm_chart().unwrap();
 

@@ -34,11 +34,11 @@ kube-state-metrics:
     - persistentvolumeclaims=[qovery.com/service-id]
   resources:
     limits:
-      cpu: 75m
-      memory: 384Mi
+      cpu: 150m
+      memory: 768Mi
     requests:
-      cpu: 75m
-      memory: 384Mi
+      cpu: 150m
+      memory: 768Mi
 
 crds:
   enabled: false
@@ -77,6 +77,8 @@ kubeStateMetrics:
 
 prometheus:
   enabled: true
+  podDisruptionBudget:
+    enabled: "set-by-engine-code"
   serviceAccount:
     annotations:
       eks.amazonaws.com/role-arn: "set-by-engine-code"
@@ -117,10 +119,10 @@ prometheus:
     resources:
       limits:
         cpu: "4"
-        memory: "8Gi"
+        memory: "4Gi"
       requests:
         cpu: "1"
-        memory: "8Gi"
+        memory: "4Gi"
     replicas: "set-by-engine-code"
 
 prometheusOperator:

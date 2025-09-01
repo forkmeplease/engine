@@ -84,6 +84,8 @@ kubeStateMetrics:
 
 prometheus:
   enabled: true
+  podDisruptionBudget:
+    enabled: "set-by-engine-code"
   serviceAccount:
     annotations:
       iam.gke.io/gcp-service-account: "set-by-engine-code"
@@ -106,6 +108,8 @@ prometheus:
     image:
       registry: public.ecr.aws/r3m4q3r9
       repository: pub-mirror-prometheus
+    # Replica label to be used by thanos
+    replicaExternalLabelName: "replica"
     thanos:
       objectStorageConfig:
         secret:

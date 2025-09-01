@@ -149,7 +149,7 @@ pub fn kapsule_helm_charts(
                 HelmChartNamespaces::KubeSystem,
                 PriorityClass::Default,
                 false,
-                chart_config_prerequisites.metrics_parameters.is_some() && metrics_config.advanced_metrics_feature,
+                chart_config_prerequisites.metrics_parameters.is_some(),
             )
             .to_common_helm_chart()?,
         ),
@@ -213,7 +213,7 @@ pub fn kapsule_helm_charts(
     // Cert Manager chart
     let cert_manager = CertManagerChart::new(
         chart_prefix_path,
-        chart_config_prerequisites.ff_metrics_history_enabled,
+        chart_config_prerequisites.metrics_parameters.is_some(),
         HelmChartResourcesConstraintType::ChartDefault,
         HelmChartResourcesConstraintType::ChartDefault,
         HelmChartResourcesConstraintType::ChartDefault,
@@ -276,7 +276,7 @@ pub fn kapsule_helm_charts(
             ),
         }),
         HelmChartResourcesConstraintType::ChartDefault,
-        chart_config_prerequisites.ff_metrics_history_enabled,
+        chart_config_prerequisites.metrics_parameters.is_some(),
         get_chart_override_fn.clone(),
         domain.clone(),
         Kind::Scw,
@@ -368,7 +368,7 @@ pub fn kapsule_helm_charts(
         chart_prefix_path,
         true,
         HelmChartNamespaces::Qovery,
-        chart_config_prerequisites.metrics_parameters.is_some() && metrics_config.advanced_metrics_feature,
+        chart_config_prerequisites.metrics_parameters.is_some(),
     )
     .to_common_helm_chart()?;
 
@@ -439,7 +439,7 @@ pub fn kapsule_helm_charts(
                 },
                 ChartSetValue {
                     key: "metrics.enabled".to_string(),
-                    value: chart_config_prerequisites.ff_metrics_history_enabled.to_string(),
+                    value: chart_config_prerequisites.metrics_parameters.is_some().to_string(),
                 },
                 // autoscaler
                 ChartSetValue {
